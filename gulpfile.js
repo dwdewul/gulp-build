@@ -7,6 +7,9 @@ const uglify = require('gulp-uglify');
 const concat = require('gulp-concat');
 const sass = require('gulp-sass');
 const cleanCSS = require('gulp-clean-css');
+const image = require('gulp-imagemin');
+const server = require('gulp-webserver');
+const runSequence = require('run-sequence');
 
 gulp.task('clean', () => {
   return del(['css', 'dist']);
@@ -46,9 +49,7 @@ gulp.task('styles', ['minify-css'], () => {
 
 gulp.task('minify-css', ['compile-css'], () => {
   return gulp.src('dist/styles/*.css')
-    .pipe(maps.init())
     .pipe(cleanCSS())
-    .pipe(maps.write())
     .pipe(rename('all.min.css'))
     .pipe(gulp.dest('dist/styles'));
 });
@@ -56,20 +57,43 @@ gulp.task('minify-css', ['compile-css'], () => {
 gulp.task('compile-css',() => {
   return gulp.src('sass/global.scss')
     .pipe(sass())
+    .pipe(maps.init())
+    .pipe(maps.write('./'))
     .pipe(gulp.dest('dist/styles'));
 });
 
 // Image Build Task
 gulp.task('images', () => {
-  return;
+  return gulp.src('images/*')
+    .pipe(image([
+      image.jpegtran({progressive: true}),
+      image.optipng({optimizationLevel: 5})
+    ]))
+    .pipe(gulp.dest('dist/content'))
+});
+
+// Serve Task
+gulp.task('serve', () => {
+  return gulp.src('./')
+  .pipe(server({
+    livereload: true,
+    directoryListing: {
+      enable: true,
+      path: 'dist'
+    },
+    open: 'http://localhost:8000/dist/index.html'
+  }));
 });
 
 // Master Build Task
-gulp.task('build', () => {
-  return;
+gulp.task('build', ['clean'], (done) => {
+  runSequence('minify-html', 'scripts', 'styles', 'images', done);
+  gulp.src('icons/**', { base: './' })
+    .pipe(gulp.dest('dist'));
+
 });
 
 // Default Build Task
-gulp.task('default', () => {
-
+gulp.task('default', ['build'], (done) => {
+  gulp.start('serve');
 });
